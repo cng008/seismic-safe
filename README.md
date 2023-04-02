@@ -12,7 +12,9 @@ This is a Node.js application that fetches earthquake data from the USGS API eve
 
 ## **Installation**
 Clone the repository: git clone https://github.com/username/earthquake-alert.git
+
 Install dependencies: npm install
+
 Create a .env file in the root directory with the following variables:
 - TWILIO_ACCOUNT_SID: Your Twilio account SID.
 - TWILIO_AUTH_TOKEN: Your Twilio auth token.
