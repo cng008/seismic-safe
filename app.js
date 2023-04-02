@@ -1,5 +1,9 @@
 const axios = require('axios');
 const twilio = require('twilio');
+const dotenv = require('dotenv').config();
+// by configurating dotenv, our app will read our .env file to make any API keys/passwords available in process.env. process.env will include our environtment variables
+
+console.log(process.env);
 
 const BASE_URL = 'https://earthquake.usgs.gov/fdsnws/event/1/';
 
@@ -57,27 +61,25 @@ getEarthquakeData();
  *  - SMS alert messages
  */
 
-const accountSid = 'AC562a1c958c5148d998f516449a76c74f'; // Your Account SID from www.twilio.com/console
+const accountSid = ''; // Your Account SID from www.twilio.com/console
 const authToken = ''; // Your Auth Token from www.twilio.com/console
 
 const client = require('twilio')(accountSid, authToken);
 
 /** VERIFY USER'S PHONE NUMBER DURING SIGNUP */
-client.messages.create({
-	body: 'Hello from twilio-node',
-	to: '+14083732704', // Text this number
-	from: '+18665169797', // From a valid Twilio number
-});
-	.then((message) => console.log(message.sid));
+// client.messages.create({
+// 	body: 'Hello from twilio-node',
+// 	to: '+14083732704', // Text this number
+// 	from: '', // From a valid Twilio number
+// });
+// 	.then((message) => console.log(message.sid));
 
-/** CREATE AND TEXT VERIFICATION CODE TO USER 
+/** CREATE AND TEXT VERIFICATION CODE TO USER
  * https://www.twilio.com/docs/verify/api/verification
-*/
-client.verify.v2
-	.services('VAff54a0485314aca600841b3c3ae3eb63')
-	.verifications.create({ to: '+14083732704', channel: 'sms' })
+ */
+client.verify.v2.verifications // .services('')
+	.create({ to: '', channel: 'sms' })
 	.then((verification) => console.log(verification.sid));
-
 
 /** CHECK VERIFICATION CODE USER HAS INPUTTED 
  * https://www.twilio.com/docs/verify/api/verification-check
@@ -93,7 +95,6 @@ client.verify.v2
    	If any of these occur, verification checks will return a 404 not found error:
 	"Unable to create record: The requested resource /Services/VAXXXXXXXXXXXXX/VerificationCheck was not found"
 */
-client.verify.v2
-	.services('VAff54a0485314aca600841b3c3ae3eb63')
-	.verificationChecks.create({ to: '+14083732704', code: '12432' })
+client.verify.v2.verificationChecks // .services('')
+	.create({ to: '', code: '12432' })
 	.then((verification_check) => console.log(verification_check.status));
