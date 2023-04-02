@@ -1,33 +1,76 @@
 const axios = require('axios');
-const twilio = require('twilio');
 const dotenv = require('dotenv').config();
 // by configurating dotenv, our app will read our .env file to make any API keys/passwords available in process.env. process.env will include our environtment variables
 
 console.log(process.env);
 
-const BASE_URL = 'https://earthquake.usgs.gov/fdsnws/event/1/';
+const BASE_URL = 'https://earthquake.usgs.gov/fdsnws/event/1';
 
-const getEarthquakeData = async () => {
+let lastEntryTime = null;
+
+async function getEarthquakeData(lastEntryTime) {
+	const startDate = new Date();
+	const endDate = new Date(startDate.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+
+	const url = `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${startDate.toISOString()}&endtime=${endDate.toISOString()}${
+		lastEntryTime ? `&minmagnitude=0&minupdate=${lastEntryTime}` : ''
+	}`;
+
 	try {
-		const res = await axios.get(
-			'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&format=geojson&starttime=2023-03-25'
-			// need to find a way to dynamically change date in query every 24 hours
-		);
-
-		const results = res.data.features.map((quake) => ({
-			magnitude: quake.properties.mag,
-			location: quake.properties.place, // keep in mind some values are null/have miscorrect spelling
-			time_of_occurence: quake.properties.time, // need to convert from UNIX to human readable time
-			more_info_url: quake.properties.url,
+		const response = await axios.get(url);
+		const earthquakes = response.data.features.map((feature) => ({
+			magnitude: feature.properties.mag,
+			place: feature.properties.place,
+			time: feature.properties.time,
+			url: feature.properties.url,
 		}));
 
-		console.log(results);
-	} catch (e) {
-		console.error(e);
-	}
-};
+		const greaterThanOrEqual4 = earthquakes.filter(
+			(earthquake) => earthquake.magnitude >= 4
+		);
+		const lessThan4 = earthquakes.filter(
+			(earthquake) => earthquake.magnitude < 4
+		);
 
-getEarthquakeData();
+		const citiesAndStatesGreaterThanOrEqual4 = greaterThanOrEqual4.map(
+			(earthquake) => {
+				const place = earthquake.place;
+				const regex = /,\s+/; // Match comma followed by one or more spaces
+				const cityStateArray = place.split(regex); // Split the place string using the regex pattern
+				const state = cityStateArray.pop(); // Remove the state from the end of the array
+				const city = cityStateArray.join(', '); // Join the remaining elements as the city
+				return { city, state };
+			}
+		);
+
+		const citiesAndStatesLessThan4 = lessThan4.map((earthquake) => {
+			const place = earthquake.place;
+			const regex = /,\s+/; // Match comma followed by one or more spaces
+			const cityStateArray = place.split(regex); // Split the place string using the regex pattern
+			const state = cityStateArray.pop(); // Remove the state from the end of the array
+			const city = cityStateArray.join(', '); // Join the remaining elements as the city
+			return { city, state };
+		});
+
+		if (earthquakes.length > 0) {
+			lastEntryTime = earthquakes[earthquakes.length - 1].time;
+		}
+
+		console.log('Greater than or equal to 4:');
+		console.log(citiesAndStatesGreaterThanOrEqual4);
+
+		console.log('Less than 4:');
+		console.log(citiesAndStatesLessThan4);
+	} catch (error) {
+		console.error(error);
+	}
+
+	setTimeout(() => {
+		getEarthquakeData(lastEntryTime);
+	}, 5 * 60 * 1000);
+}
+
+getEarthquakeData(lastEntryTime);
 
 /** LOGIC FOR SENDING EARTHQUAKE MESSAGES
  *  need to ensure messages are only sent AFTER time of user registration.
@@ -53,48 +96,3 @@ getEarthquakeData();
  * QUERYING EARTHQUAKES BY LATITUDE/LONGITUDE
  * 2013 US Government - Zip Code Coordinates: https://gist.github.com/erichurst/7882666
  */
-
-/** TWILIO INTEGRATION
- *
- * 2 Features:
- *  - phone number verification during sign up
- *  - SMS alert messages
- */
-
-const accountSid = ''; // Your Account SID from www.twilio.com/console
-const authToken = ''; // Your Auth Token from www.twilio.com/console
-
-const client = require('twilio')(accountSid, authToken);
-
-/** VERIFY USER'S PHONE NUMBER DURING SIGNUP */
-// client.messages.create({
-// 	body: 'Hello from twilio-node',
-// 	to: '+14083732704', // Text this number
-// 	from: '', // From a valid Twilio number
-// });
-// 	.then((message) => console.log(message.sid));
-
-/** CREATE AND TEXT VERIFICATION CODE TO USER
- * https://www.twilio.com/docs/verify/api/verification
- */
-client.verify.v2.verifications // .services('')
-	.create({ to: '', channel: 'sms' })
-	.then((verification) => console.log(verification.sid));
-
-/** CHECK VERIFICATION CODE USER HAS INPUTTED 
- * https://www.twilio.com/docs/verify/api/verification-check
- * 
- * The status of the verification. Can be: pending, approved, or canceled.
- * 
- * Twilio deletes the verification SID once it’s:
-
-	- expired (10 minutes)
-	- approved
-	- when the max attempts to check a code have been reached
-
-   	If any of these occur, verification checks will return a 404 not found error:
-	"Unable to create record: The requested resource /Services/VAXXXXXXXXXXXXX/VerificationCheck was not found"
-*/
-client.verify.v2.verificationChecks // .services('')
-	.create({ to: '', code: '12432' })
-	.then((verification_check) => console.log(verification_check.status));
